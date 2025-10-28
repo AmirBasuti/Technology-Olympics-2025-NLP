@@ -4,6 +4,7 @@ import csv
 from typing import Dict, Any, List, Tuple
 from io import StringIO
 import httpx
+from bs4 import BeautifulSoup
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -49,8 +50,18 @@ STRATEGY:
 - Simple math/knowledge → answer directly
 - URLs mentioned → use http_request or CSV tools
 - CSV files → use get_csv_row_count, get_csv_summary, or find_csv_row
+- HTML/webpage counting → use count_html_elements with CSS selectors
 - Persian math → use calculate
-- API endpoints → use http_request""",
+- API endpoints → use http_request
+
+TOOLS AVAILABLE:
+- http_request: Get webpage content, API data, text files
+- count_html_elements: Count HTML tags/elements (use CSS selectors like 'span.text', 'div.quote')
+- get_csv_row_count: Count rows in CSV files
+- get_csv_summary: Get CSV headers and sample rows
+- find_csv_row: Find specific row in CSV by ID
+- count_entities: Count items across multiple URLs
+- calculate: Persian/Farsi math calculator""",
         )
         
         # Register all tools with the agent
@@ -273,6 +284,39 @@ STRATEGY:
                 return str(result)
             except Exception as e:
                 return f"Error calculating: {str(e)}"
+        
+        # Tool 7: Count HTML Elements (for web scraping tasks)
+        @self.agent.tool_plain
+        def count_html_elements(url: str, css_selector: str) -> str:
+            """
+            Count HTML elements on a webpage using CSS selectors.
+            Uses BeautifulSoup for accurate HTML parsing.
+            
+            Args:
+                url: The URL of the webpage to analyze
+                css_selector: CSS selector to find elements (e.g., 'span.text', 'div.quote', 'a')
+            
+            Returns:
+                Count of matching elements as a string
+            
+            Examples:
+                count_html_elements('http://example.com', 'span.text') -> counts <span class="text"> tags
+                count_html_elements('http://example.com', 'div.quote') -> counts <div class="quote"> tags
+                count_html_elements('http://example.com', 'a') -> counts all <a> tags
+            """
+            try:
+                response = httpx.get(url, timeout=30.0, follow_redirects=True)
+                response.raise_for_status()
+                
+                # Parse HTML with BeautifulSoup
+                soup = BeautifulSoup(response.text, 'lxml')
+                
+                # Find all matching elements using CSS selector
+                elements = soup.select(css_selector)
+                
+                return str(len(elements))
+            except Exception as e:
+                return f"Error counting HTML elements: {str(e)}"
     
     def solve_lock(self, problem: Dict[str, Any], history: List[Tuple[str, str]]) -> str:
         """
