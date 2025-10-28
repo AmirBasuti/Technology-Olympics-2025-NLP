@@ -1,0 +1,4 @@
+httpx
+pydantic-ai-slim[openai]
+beautifulsoup4
+lxml
